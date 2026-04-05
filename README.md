@@ -12,7 +12,9 @@ References:
 - Attention Is All You Need: https://arxiv.org/abs/1706.03762
 - GQA paper: https://arxiv.org/abs/2305.13245
 
-Accompanies the blog post:
+Accompanies the blog post: [LLaMA 2: How Three Borrowed Techniques Fit a 70B Model on Two GPUs
+](https://yashpatel.xyz/blog/llama-2-how-three-borrowed-techniques-fit-a-70b-model-on-two-gpus)
+
 ---
 
 ## Files
