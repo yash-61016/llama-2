@@ -1,9 +1,9 @@
 # Llama 2 Internals - Artifacts
 
-From-scratch implementation and visualization artifacts for:
+Code-first implementation and visualization artifacts for two core Llama 2 ideas:
 
-- RoPE (Rotary Position Embedding)
-- GQA vs MHA KV-cache scaling in Llama 2
+- **RoPE (Rotary Position Embedding)** for relative-position-aware attention
+- **GQA (Grouped Query Attention)** for KV-cache memory compression at inference scale
 
 References:
 
@@ -12,8 +12,11 @@ References:
 - Attention Is All You Need: https://arxiv.org/abs/1706.03762
 - GQA paper: https://arxiv.org/abs/2305.13245
 
-Accompanies the blog post: [LLaMA 2: How Three Borrowed Techniques Fit a 70B Model on Two GPUs
-](https://yashpatel.xyz/blog/llama-2-how-three-borrowed-techniques-fit-a-70b-model-on-two-gpus)
+Accompanies the blog post: [LLaMA 2: How Three Borrowed Techniques Fit a 70B Model on Two GPUs](https://yashpatel.xyz/blog/llama-2-how-three-borrowed-techniques-fit-a-70b-model-on-two-gpus)
+
+This repository focuses on the implementation-heavy parts of that write-up:
+- verifying RoPE behavior numerically and visually in pure NumPy
+- quantifying how GQA changes KV-cache memory and feasible batch sizes with real GPU tensor allocation
 
 ---
 
@@ -21,18 +24,29 @@ Accompanies the blog post: [LLaMA 2: How Three Borrowed Techniques Fit a 70B Mod
 
 | File | Description |
 |------|-------------|
-| `rope_from_scratch.py` | Pure NumPy RoPE implementation. Numerically verifies the relative-position property and compares RoPE decay curves against additive sinusoidal encodings. |
-| `gqa_kvcache_benchmark.py` | Empirical GPU benchmark that allocates real KV-cache tensors for GPT-2 XL, Llama-2 7B, Llama-2 70B (GQA), and an MQA variant. Measures memory and computes max batch under a fixed VRAM budget. |
+| `rope_from_scratch.py` | Pure NumPy RoPE implementation. Numerically verifies the relative-position identity, compares decay behavior against additive sinusoidal encodings, and generates publication-ready plots. |
+| `gqa_kvcache_benchmark.py` | Empirical GPU benchmark that allocates real KV-cache tensors for GPT-2 XL, Llama-2 7B, Llama-2 70B (GQA), and an MQA variant. Measures allocated memory and computes max batch under a fixed VRAM budget. |
 | `rope_diagram.py` | Manim scene that renders a two-panel RoPE diagram (geometric rotation view + algebraic identity) for blog or slide use. |
 
-## Included Artifacts
+## Visual Highlights
 
-This repo currently includes generated figures:
+The repository already includes these generated figures:
 
-- `gqa_kvcache_memory.png`
-- `gqa_max_batch.png`
-- `rope_decay_curves.png`
-- `rope_rotation_heatmap.png`
+### RoPE: locality + rotation structure
+
+![RoPE decay curves](./rope_decay_curves.png)
+*`rope_decay_curves.png`: expected attention magnitude vs relative distance, contrasting RoPE with additive sinusoidal encoding.*
+
+![RoPE rotation heatmap](./rope_rotation_heatmap.png)
+*`rope_rotation_heatmap.png`: per-dimension-pair rotation angles over token positions.*
+
+### GQA: KV-cache scaling impact
+
+![KV-cache memory by architecture](./gqa_kvcache_memory.png)
+*`gqa_kvcache_memory.png`: KV-cache GB vs sequence length across MHA/GQA/MQA configurations.*
+
+![Max batch under KV budget](./gqa_max_batch.png)
+*`gqa_max_batch.png`: maximum batch size under a fixed 20 GB KV-cache budget.*
 
 ## Hardware
 
@@ -91,7 +105,7 @@ manim -ql --save_last_frame rope_diagram.py RopeDiagram
 
 ## Key Findings
 
-1. RoPE relative-position property is verified numerically:
+1. RoPE relative-position property is verified numerically (real-valued implementation checked against complex-number reference):
 
 ```text
 dot(R(m)*q, R(n)*k) depends on (m - n), not absolute m or n
@@ -107,3 +121,8 @@ compression vs MHA = num_q_heads / num_kv_heads
 For Llama-2 70B (64 query heads, 8 KV heads), GQA gives an 8x KV-cache reduction versus hypothetical MHA at the same size.
 
 3. Under fixed KV memory budgets, GQA translates directly into larger feasible batch sizes at long context lengths.
+
+4. The scripts are intentionally transparent and reproducible:
+   - no model weights are loaded for KV-cache experiments (memory depends on tensor shapes, not checkpoint values)
+   - analytical formulas are validated against real allocations
+   - each figure maps directly to a runnable script in this repo
